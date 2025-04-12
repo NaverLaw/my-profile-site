@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { auth, googleProvider, db } from "../firebase";
 import { signInWithPopup } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 const loadUserProfile = async (userUID) => {
   try {
@@ -34,12 +36,25 @@ const viewUserProfile = async (userUID) => {
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
+      console.log("Profile found:", userDoc.data());
       return userDoc.data(); // Повертаємо дані профілю для перегляду
     } else {
-      console.error("Profile not found!");
+      console.error("Profile not found for UID:", userUID);
+      return null; // Повертаємо null, якщо профіль не знайдено
     }
   } catch (error) {
     console.error("Error viewing profile:", error.message);
+    return null;
+  }
+};
+
+const handleViewProfile = async (userUID) => {
+  const profile = await viewUserProfile(userUID);
+  if (!profile) {
+    alert("Profile not found!");
+  } else {
+    console.log("Profile data:", profile);
+    // Відобразіть профіль у UI
   }
 };
 
@@ -49,12 +64,12 @@ function Login() {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      // Check if profile exists in Firestore
+      // Перевіряємо, чи існує профіль у Firestore
       const userDocRef = doc(db, "profiles", user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
-        // If profile does not exist, create a new one
+        // Якщо профілю немає, створюємо новий
         await setDoc(userDocRef, {
           name: user.displayName,
           email: user.email,
@@ -64,6 +79,10 @@ function Login() {
         console.log("New profile created!");
       } else {
         console.log("Profile loaded:", userDoc.data());
+        // Завантажуємо існуючий профіль у стан
+        const profileData = userDoc.data();
+        // Наприклад, збережіть профіль у локальному стані
+        // setProfile(profileData);
       }
     } catch (error) {
       console.error("Error during sign-in:", error.message);
@@ -92,4 +111,35 @@ function Login() {
   );
 }
 
-export default Login;
+function ProfileView() {
+  const { id } = useParams(); // Зчитуємо UID з URL
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const profileData = await viewUserProfile(id);
+      if (profileData) {
+        setProfile(profileData);
+      } else {
+        console.error("Profile not found!");
+      }
+    };
+
+    fetchProfile();
+  }, [id]);
+
+  if (!profile) {
+    return <div>Profile not found!</div>;
+  }
+
+  return (
+    <div>
+      <h1>{profile.name}</h1>
+      <p>Email: {profile.email}</p>
+      <p>Phone: {profile.phone}</p>
+    </div>
+  );
+}
+
+export default ProfileView;
+export { Login };
