@@ -3,6 +3,7 @@ services:
     name: my-profile-site
     env: node
     plan: free
+    nodeVersion: 18.20.4
     buildCommand: npm install && npm run build
     startCommand: npm start
     autoDeploy: true
