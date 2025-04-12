@@ -1,13 +1,72 @@
 import { motion } from "framer-motion";
-import { auth, googleProvider } from "../firebase";
+import { auth, googleProvider, db } from "../firebase";
 import { signInWithPopup } from "firebase/auth";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+
+const loadUserProfile = async (userUID) => {
+  try {
+    const userDocRef = doc(db, "profiles", userUID);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data();
+    } else {
+      console.error("Profile not found!");
+    }
+  } catch (error) {
+    console.error("Error loading profile:", error.message);
+  }
+};
+
+const updateUserProfile = async (userUID, updatedData) => {
+  try {
+    const userDocRef = doc(db, "profiles", userUID);
+    await updateDoc(userDocRef, updatedData);
+    console.log("Profile updated!");
+  } catch (error) {
+    console.error("Error updating profile:", error.message);
+  }
+};
+
+const viewUserProfile = async (userUID) => {
+  try {
+    const userDocRef = doc(db, "profiles", userUID);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data(); // Повертаємо дані профілю для перегляду
+    } else {
+      console.error("Profile not found!");
+    }
+  } catch (error) {
+    console.error("Error viewing profile:", error.message);
+  }
+};
 
 function Login() {
-  const signInWithGoogle = async () => {
+  const handleGoogleSignIn = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Check if profile exists in Firestore
+      const userDocRef = doc(db, "profiles", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        // If profile does not exist, create a new one
+        await setDoc(userDocRef, {
+          name: user.displayName,
+          email: user.email,
+          phone: "",
+          contacts: [],
+        });
+        console.log("New profile created!");
+      } else {
+        console.log("Profile loaded:", userDoc.data());
+      }
     } catch (error) {
-      console.error("Error signing in with Google:", error);
+      console.error("Error during sign-in:", error.message);
     }
   };
 
@@ -22,7 +81,7 @@ function Login() {
         Protect Your Data
       </motion.h1>
       <motion.button
-        onClick={signInWithGoogle}
+        onClick={handleGoogleSignIn}
         className="bg-orange-500 text-white px-6 py-3 rounded-full text-lg"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
