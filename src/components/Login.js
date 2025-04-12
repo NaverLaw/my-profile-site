@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
 import { auth, googleProvider, db } from "../firebase";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { useParams } from "react-router-dom";
+import { useParams, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 const loadUserProfile = async (userUID) => {
@@ -59,6 +59,15 @@ const handleViewProfile = async (userUID) => {
 };
 
 function Login() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const handleGoogleSignIn = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
@@ -79,13 +88,22 @@ function Login() {
         console.log("New profile created!");
       } else {
         console.log("Profile loaded:", userDoc.data());
-        // Завантажуємо існуючий профіль у стан
         const profileData = userDoc.data();
         // Наприклад, збережіть профіль у локальному стані
         // setProfile(profileData);
       }
     } catch (error) {
       console.error("Error during sign-in:", error.message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      console.log("User signed out!");
+      alert("You have been signed out. Please log in with a different account.");
+    } catch (error) {
+      console.error("Error signing out:", error.message);
     }
   };
 
@@ -99,14 +117,28 @@ function Login() {
       >
         Protect Your Data
       </motion.h1>
-      <motion.button
-        onClick={handleGoogleSignIn}
-        className="bg-orange-500 text-white px-6 py-3 rounded-full text-lg"
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-      >
-        Sign in with Google
-      </motion.button>
+      {user ? (
+        <>
+          <p className="mb-4">Logged in as: {user.email}</p>
+          <motion.button
+            onClick={handleSignOut}
+            className="bg-red-500 text-white px-6 py-3 rounded-full text-lg"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            Sign Out
+          </motion.button>
+        </>
+      ) : (
+        <motion.button
+          onClick={handleGoogleSignIn}
+          className="bg-orange-500 text-white px-6 py-3 rounded-full text-lg"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          Sign in with Google
+        </motion.button>
+      )}
     </div>
   );
 }
@@ -114,6 +146,14 @@ function Login() {
 function ProfileView() {
   const { id } = useParams(); // Зчитуємо UID з URL
   const [profile, setProfile] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -127,6 +167,10 @@ function ProfileView() {
 
     fetchProfile();
   }, [id]);
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
 
   if (!profile) {
     return <div>Profile not found!</div>;
